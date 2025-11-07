@@ -1,0 +1,13 @@
+# ---- Paso 1: La Base ----
+FROM php:8.3-apache
+
+# ---- Paso 2: Habilitar Módulos de Apache ----
+# Habilitamos "rewrite" para que la URL /dashboard.php funcione
+RUN a2enmod rewrite
+
+# ---- Paso 3: Copiar nuestro código ----
+COPY . /var/www/html
+
+# ---- Paso 4: Configurar Apache ----
+# Nota: NO hay paso de Composer
+COPY apache-config.conf /etc/apache2/sites-available/000-default.conf
