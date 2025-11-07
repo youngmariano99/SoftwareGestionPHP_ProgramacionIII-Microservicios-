@@ -1,0 +1,31 @@
+# === .gitignore para Microservicios PHP (Docker + Composer) ===
+
+# 1. Dependencias de Composer (¡El más importante!)
+# Ignora todas las carpetas 'vendor' en cualquier subdirectorio.
+**/vendor/
+
+# 2. Archivos de Configuración Sensibles
+# Ignora todos los archivos .env, que contienen contraseñas y claves de API.
+# ¡Nunca subas tus secretos a GitHub!
+**/.env
+
+# 3. Archivos de Sistema Operativo
+# Ignora los archivos basura de macOS y Windows.
+.DS_Store
+Thumbs.db
+
+# 4. Archivos de IDE
+# Ignora las carpetas de configuración de IDEs populares como VSCode o PhpStorm.
+.idea/
+.vscode/
+
+# 5. Logs
+# Ignora todos los archivos que terminen en .log
+*.log
+**/*.log
+
+# === Excepciones ===
+# ¡Queremos subir los archivos .env.ejemplo como plantillas!
+# El "!" al principio significa "NO ignorar".
+!**/.env.ejemplo
+!**/.env.sample
