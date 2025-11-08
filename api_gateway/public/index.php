@@ -119,7 +119,7 @@ $app->any('/{proxy:.*}', function (Request $request, Response $response, array $
         $targetUrl = $servicios['productos'] . '/' . $path;
     } elseif (str_starts_with($path, 'ventas')) {
         $targetUrl = $servicios['ventas'] . '/' . $path;
-    } elseif (str_starts_with($path, 'login') || str_starts_with($path, 'empleados')) {
+    } elseif (str_starts_with($path, 'login') || str_starts_with($path, 'empleados') ) {
         $targetUrl = $servicios['usuarios'] . '/' . $path;
     } else {
         $response->getBody()->write(json_encode(['error' => 'Ruta no encontrada']));

@@ -30,6 +30,7 @@
                 <tr>
                     <th>ID</th>
                     <th>Nombre</th>
+                    <th>Apellido</th>
                     <th>Rol</th>
                 </tr>
             </thead>
@@ -162,7 +163,7 @@
             tbody.innerHTML = ''; // Limpiamos tabla
             empleados.forEach(emp => {
                 const tr = document.createElement('tr');
-                tr.innerHTML = `<td>${emp.id}</td><td>${emp.nombre}</td><td>${emp.rol}</td>`;
+                tr.innerHTML = `<td>${emp.id}</td><td>${emp.nombre}</td><td>${emp.apellido}</td><td>${emp.rol}</td>`;
                 tbody.appendChild(tr);
             });
         })

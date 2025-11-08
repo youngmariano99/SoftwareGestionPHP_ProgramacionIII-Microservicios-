@@ -37,9 +37,11 @@ $app->post('/ventas', function (Request $request, Response $response) {
             $id = $productoVendido['id'];
             $cantidadVendida = (int) $productoVendido['cantidad'];
 
-            // 1. Preguntamos al Servicio de Productos por el stock actual
-            $urlGetProducto = "http://localhost:8081/productos/{$id}";
+            // ...
+            // 1. Preguntamos al Servicio de Productos (directamente por la red interna)
+            $urlGetProducto = "http://productos/productos/{$id}"; // <-- ¡Correcto!
             $responseGet = $clienteApiProductos->get($urlGetProducto);
+            // ...
 
             $contenidoCrudo = $responseGet->getBody()->getContents();
     
@@ -65,7 +67,7 @@ $app->post('/ventas', function (Request $request, Response $response) {
 
             // 3. Calculamos y le decimos al Servicio de Productos que actualice el stock
             $nuevoStock = $stockActual - $cantidadVendida;
-            $urlPutStock = "http://localhost:8081/productos/{$id}/stock";
+            $urlPutStock = "http://productos/productos/{$id}/stock"; // <-- ¡Correcto!
             
             $clienteApiProductos->put($urlPutStock, [
                 'json' => ['stock' => $nuevoStock] // Guzzle envía esto como JSON

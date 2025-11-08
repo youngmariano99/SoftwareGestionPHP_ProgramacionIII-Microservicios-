@@ -4,6 +4,7 @@
         <tr>
             <th>ID</th>
             <th>Nombre</th>
+            <th>Apellido</th>
             <th>Rol</th>
         </tr>
     </thead>
@@ -56,6 +57,7 @@
                 tr.innerHTML = `
                     <td>${emp.id}</td>
                     <td>${emp.nombre}</td>
+                    <td>${emp.apellido}</td>
                     <td>${emp.rol}</td>
                 `;
                 tbody.appendChild(tr);

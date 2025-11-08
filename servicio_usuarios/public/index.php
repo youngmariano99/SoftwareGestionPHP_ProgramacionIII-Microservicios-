@@ -6,115 +6,92 @@ use Firebase\JWT\JWT;
 
 require __DIR__ . '/../vendor/autoload.php';
 
-// --- (Simulación de tu conexión a BD) ---
-// Mueve tu lógica de 'db/conexionMySQL.php' a un archivo aquí (ej. /src/Db.php)
-// y llámala para obtener $pdo. Por ahora, lo simulamos.
-function getDbConnection() {
-    // Aquí iría tu lógica real de conexión PDO o MySQLi
-    // require __DIR__ . '/../src/conexionMySQL.php';
-    // return $pdo;
-    return null; // Simulación
-}
-// -----------------------------------------
+// --- ¡NUEVO! Cargar variables de entorno ---
+// Carga el .env desde la raíz del servicio (un nivel arriba de /public)
+$dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/../');
+$dotenv->load();
 
+// --- ¡NUEVO! Incluir nuestra función de conexión ---
+require __DIR__ . '/../src/conexionMySQL.php';
 
 $app = AppFactory::create();
 
-$claveSecreta = '123456789';
-
-// Define el "endpoint" para el login
-// Esto REEMPLAZA tu 'procesar_login.php'
+// Endpoint de Login (Ahora con lógica de BD)
 $app->post('/login', function (Request $request, Response $response) {
     
-    // Obtiene los datos del body (ej. JSON) en lugar de $_POST
     $data = json_decode($request->getBody()->getContents(), true);
     $email = $data['email'] ?? '';
     $password = $data['password'] ?? '';
 
-    // --- LÓGICA DE LOGIN ---
-    // Aquí pegarías la lógica de tu 'procesar_login.php'
-    // $pdo = getDbConnection();
-    // $stmt = $pdo->prepare("SELECT * FROM usuarios WHERE email = ?");
-    // $stmt->execute([$email]);
-    // $user = $stmt->fetch();
-    // 
-    // if ($user && password_verify($password, $user['password'])) {
-    // -----------------------
-    global $claveSecreta;
-    // Simulación de éxito
-    if ($email === 'admin@admin.com' && $password === '1234') {
-        
-        $payload = [
-            'iat' => time(),
-            'exp' => time() + (60*60),
-            'data' => [
-                'id' => 1,
-                'nombre' => 'Admin',
-                'rol' => 'administrador'
-            ]
-            ];
-        
-        $token  = JWT::encode($payload, $claveSecreta, 'HS256');
-       
-        // En lugar de 'header(Location: ...)' y '$_SESSION',
-        // un microservicio DEVUELVE datos (JSON).
-        $response->getBody()->write(json_encode([
-            'status' => 'success',
-            'token' => $token
-        ]));
-        return $response->withHeader('Content-Type', 'application/json');
-    } elseif ($email === 'empleado@tienda.com' && $password === '1234') {
-    global $claveSecreta; 
-    $payload = [
-        'iat' => time(),
-        'exp' => time() + (60 * 60),
-        'data' => [
-            'id' => 10, // El ID de Juan Perez (simulado)
-            'nombre' => 'Juan Perez',
-            'rol' => 'vendedor' // <--- ROL CLAVE
-        ]
-    ];
-    $token = JWT::encode($payload, $claveSecreta, 'HS256');
-    $response->getBody()->write(json_encode([
-        'status' => 'success',
-        'token' => $token
-    ]));
-    return $response->withHeader('Content-Type', 'application/json');
-} else {
-        $response->getBody()->write(json_encode([
-            'status' => 'error',
-            'mensaje' => 'Credenciales incorrectas'
-        ]));
-        return $response->withStatus(401)->withHeader('Content-Type', 'application/json');
+    if (empty($email) || empty($password)) {
+        $response->getBody()->write(json_encode(['error' => 'Email y contraseña requeridos.']));
+        return $response->withStatus(400)->withHeader('Content-Type', 'application/json');
     }
 
-    
+    try {
+        $pdo = getDbConnection();
+        $stmt = $pdo->prepare("SELECT * FROM usuarios WHERE email = ?"); // Asegúrate que tu tabla se llame 'usuarios'
+        $stmt->execute([$email]);
+        $user = $stmt->fetch();
+
+        // Verificamos el usuario y la contraseña hasheada
+        if ($user && $password == $user['password']) {
+            
+            // ¡Éxito! Creamos el token
+            $claveSecreta = $_ENV['JWT_SECRET']; // Usamos la clave del .env
+            $payload = [
+                'iat' => time(),
+                'exp' => time() + (60 * 60), // 1 hora de expiración
+                'data' => [
+                    'id' => $user['id'],
+                    'nombre' => $user['nombre'],
+                    'rol' => $user['rol'] // 'administrador' o 'vendedor'
+                ]
+            ];
+            
+            $token  = JWT::encode($payload, $claveSecreta, 'HS256');
+           
+            $response->getBody()->write(json_encode([
+                'status' => 'success',
+                'token' => $token
+            ]));
+            return $response->withHeader('Content-Type', 'application/json');
+
+        } else {
+            // Credenciales incorrectas
+            $response->getBody()->write(json_encode([
+                'status' => 'error',
+                'mensaje' => 'Credenciales incorrectas'
+            ]));
+            return $response->withStatus(401)->withHeader('Content-Type', 'application/json');
+        }
+
+    } catch (\PDOException $e) {
+        $response->getBody()->write(json_encode(['error' => 'Error de base de datos: ' . $e->getMessage()]));
+        return $response->withStatus(500)->withHeader('Content-Type', 'application/json');
+    }
 });
 
-// Define el "endpoint" para obtener empleados
-// Esto REEMPLAZA tu 'core/obtener_empleados.php'
+
+
+// Endpoint para obtener empleados (sigue simulado, puedes cambiarlo)
 $app->get('/empleados', function (Request $request, Response $response) {
     
-    // --- LÓGICA DE OBTENER EMPLEADOS ---
-    // Aquí pegarías la lógica de 'obtener_empleados.php'
+    // TAREA: Reemplaza esto con una consulta a la BD usando getDbConnection()
     // $pdo = getDbConnection();
-    // $stmt = $pdo->query("SELECT id, nombre, email, rol FROM empleados");
-    // $empleados = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    // ----------------------------------
+    // $stmt = $pdo->query("SELECT id, nombre, rol FROM usuarios WHERE rol != 'administrador'");
+    // $empleados = $stmt->fetchAll();
 
-    // Simulación de datos
-    $empleados = [
-        ['id' => 10, 'nombre' => 'Juan Perez', 'rol' => 'vendedor'],
-        ['id' => 11, 'nombre' => 'Ana Gomez', 'rol' => 'vendedor'],
-    ];
+    $pdo = getDbConnection();
+    // ✅ FORMA RECOMENDADA - Parámetros preparados (más seguro)
+    $stmt = $pdo->prepare("SELECT * FROM usuarios WHERE rol = :rol");
+    $stmt->execute(['rol' => 'vendedor']);
+    $empleados = $stmt->fetchAll();
 
-    // Simplemente devolvemos los datos como JSON
+
     $response->getBody()->write(json_encode($empleados));
     return $response->withHeader('Content-Type', 'application/json');
 });
 
-// Agrega aquí los otros endpoints:
-// POST /empleados (para crear)
-// DELETE /empleados/{id} (para borrar)
 
 $app->run();
