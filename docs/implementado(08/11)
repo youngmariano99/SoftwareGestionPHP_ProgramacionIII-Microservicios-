@@ -1,0 +1,198 @@
+¡Por supuesto! Ha sido un proyecto excelente y me parece una idea fantástica capturar todo en una guía.
+
+Como no puedo generar un archivo PDF directamente, he escrito el resumen completo en **formato Markdown** (texto plano).
+
+Para **convertirlo en PDF**, te recomiendo dos opciones fáciles:
+1.  **Si usas VSCode:** Pega este texto en un archivo nuevo llamado `Guia_Proyecto.md`. Haz clic derecho en la pestaña del archivo y busca una opción como "Exportar a PDF" (es posible que necesites una extensión gratuita como "Markdown PDF").
+2.  **Opción Online:** Simplemente copia todo el texto de abajo y pégalo en un conversor online (busca "Markdown to PDF converter" en Google).
+
+---
+
+# Guía Definitiva del Proyecto: De Monolito PHP a Microservicios con Docker
+
+Este documento es un resumen completo de la transformación de una aplicación PHP monolítica a una arquitectura de microservicios moderna, empaquetada con Docker y Docker Compose.
+
+---
+
+## 1. El Punto de Partida: El Monolito 🧱
+
+Comenzamos con una aplicación PHP tradicional, comúnmente llamada **"Monolito"**.
+
+### Características Principales:
+* **Todo en uno:** El código del frontend (vistas HTML/PHP) y del backend (lógica de negocio, conexión a BD) residen en la misma base de código y se ejecutan como un solo programa.
+* **Acoplamiento Fuerte:** El frontend llamaba a la lógica del backend usando `include` o `require` de PHP, creando una dependencia directa.
+* **Base de Datos Única:** Toda la aplicación (usuarios, productos, ventas) leía y escribía sobre una única base de datos.
+* **Gestión de Estado:** La autenticación se manejaba con **`$_SESSION`** de PHP, atando al usuario a un servidor específico.
+
+---
+
+## 2. La Transformación: Arquitectura de Microservicios 🧩
+
+El objetivo fue "desacoplar" la aplicación dividiéndola en servicios independientes.
+
+### Características Principales:
+* **Separación de Responsabilidades:** Cada servicio tiene una única función (gestionar usuarios, gestionar productos, etc.) y es dueño de sus propios datos.
+* **Acoplamiento Débil:** Los servicios se comunican entre sí a través de la red usando **peticiones HTTP** (APIs RESTful), no con `include`.
+* **Cliente y Servidor Separados:** El `frontend` (cliente) ahora es una aplicación de JavaScript que "consume" a los servicios (servidores).
+* **Gestión de Estado "sin estado":** Reemplazamos las `$_SESSION` por **Tokens JWT** (JSON Web Tokens). El frontend guarda este "carnet" y lo presenta en cada petición para autenticarse.
+
+---
+
+## 3. Los 5 Componentes de la Nueva Arquitectura
+
+Dividimos el proyecto en 5 carpetas/servicios independientes:
+
+### 1. `frontend/` (La Cara de la Tienda)
+* **Puerto:** `3000`
+* **Rol:** Servir el HTML y el JavaScript al navegador del usuario. Es el único servicio con el que el usuario interactúa directamente.
+* **Tecnologías:**
+    * `JavaScript` (puro)
+    * `fetch()`: Para realizar peticiones HTTP asíncronas (el "mensajero").
+    * `localStorage`: Para almacenar el token JWT en el navegador.
+* **Lógica Clave:**
+    * Envía el email/pass al Gateway.
+    * Recibe un token y lo guarda en `localStorage`.
+    * En las siguientes peticiones, lee el token del `localStorage` y lo añade al encabezado `Authorization`.
+    * Muestra un panel u otro (`admin` o `vendedor`) basado en el rol decodificado del token.
+
+### 2. `api_gateway/` (El Peaje y Recepcionista)
+* **Puerto:** `8000`
+* **Rol:** El **único punto de entrada** para el frontend. Protege y redirige todas las peticiones.
+* **Tecnologías:**
+    * `Slim`: Para enrutar las peticiones entrantes.
+    * `Guzzle`: Para "reenviar" la petición al microservicio interno correcto.
+    * `Firebase/php-jwt`: Para **validar** los tokens JWT.
+* **Lógica Clave:**
+    * **CORS:** Añade encabezados `Access-Control-Allow-Origin` para permitir peticiones desde `localhost:3000`.
+    * **Ruta de "permiso" `OPTIONS`:** Responde `200 OK` a las peticiones `OPTIONS` del navegador.
+    * **Guardia de Seguridad:** En todas las rutas (excepto `/login` y `/registro`), verifica el token (`Authorization: Bearer ...`). Si es inválido, devuelve un error `401`.
+    * **Control de Roles (RBAC):** Lee el rol *dentro* del token (ej. `administrador`) y decide si puede acceder a la ruta (ej. `/empleados`). Si no, devuelve `403`.
+    * **Proxy/Redirección:** Si todo es válido, usa Guzzle para llamar al servicio interno (ej. `http://usuarios/empleados`).
+
+### 3. `servicio_usuarios/` (El Guardia de Identidad)
+* **Puerto:** (Interno, solo accesible por el Gateway)
+* **Tecnologías:**
+    * `Slim`: Para definir los endpoints `/login` y `/registro`.
+    * `vlucas/phpdotenv`: Para cargar secretos y credenciales de BD desde un archivo `.env`.
+    * `PDO`: Para conectarse a la base de datos MySQL.
+    * `Firebase/php-jwt`: Para **crear** los tokens JWT.
+* **Lógica Clave:**
+    * **`/registro`:** Recibe `POST`, hashea la contraseña con `password_hash()` y la guarda en la BD.
+    * **`/login`:** Recibe `POST`, busca el usuario en la BD por email, y comprueba la contraseña usando `password_verify()`. Si es exitoso, crea un token JWT con los datos del usuario (ID, nombre, rol) dentro.
+
+### 4. `servicio_productos/` (El Encargado de Inventario)
+* **Puerto:** (Interno)
+* **Tecnologías:**
+    * `Slim`: Para definir los endpoints CRUD (ej. `GET /productos`, `PUT /productos/:id/stock`).
+    * `mongodb/mongodb`: El driver oficial de MongoDB para PHP.
+* **Lógica Clave:**
+    * Es el **único** servicio que sabe cómo conectarse a la base de datos de productos (MongoDB Atlas).
+    * Provee métodos para que otros servicios le pregunten por el stock o lo actualicen.
+
+### 5. `servicio_ventas/` (El Orquestador de Lógica)
+* **Puerto:** (Interno)
+* **Tecnologías:**
+    * `Slim`: Para definir el endpoint `POST /ventas`.
+    * `Guzzle`: Para comunicarse con el `servicio_productos`.
+* **Lógica Clave:**
+    * Recibe la petición de venta.
+    * **Comunicación Inter-Servicio:** Antes de confirmar la venta, usa Guzzle para llamar al `servicio_productos` (`http://productos/productos/:id`) y verificar el stock.
+    * Si hay stock, usa Guzzle otra vez para llamar a `http://productos/productos/:id/stock` (con `PUT`) y descontar la cantidad vendida.
+
+---
+
+## 4. El Flujo de Datos: Una Petición de Ejemplo
+
+Este es el flujo completo de una petición de un usuario para registrar una venta:
+
+1.  **Frontend (JS):** El usuario hace clic en "Vender".
+2.  **`fetch()`:** JavaScript crea una petición `POST` para `http://localhost:8000/ventas`.
+3.  **Token:** JS toma el token de `localStorage` y lo añade al encabezado: `Authorization: Bearer <token>`.
+4.  **`api_gateway` (Puerto 8000):**
+    * Recibe la petición.
+    * Valida el token JWT. Es válido.
+    * Lee el rol "vendedor". Tiene permiso para `/ventas`.
+    * Usa **Guzzle** para reenviar la petición a la dirección interna: `http://ventas/ventas`.
+5.  **`servicio_ventas` (Interno):**
+    * Recibe la petición de venta.
+    * Inicia un `foreach` por los productos.
+    * Usa **Guzzle** para llamar al servicio de productos: `GET http://productos/productos/123`.
+6.  **`servicio_productos` (Interno):**
+    * Recibe la petición de `servicio_ventas`.
+    * Busca el producto `123` en MongoDB.
+    * Devuelve el JSON del producto: `{"id": 123, "stock": 50}`.
+7.  **`servicio_ventas` (Interno):**
+    * Recibe la respuesta de Guzzle.
+    * Comprueba que `50` (stock) es mayor que la cantidad a vender.
+    * Usa **Guzzle** otra vez: `PUT http://productos/productos/123/stock` con el JSON `{"stock": 49}`.
+8.  **`servicio_productos` (Interno):**
+    * Recibe la petición `PUT`.
+    * Actualiza el stock del producto `123` a `49` en MongoDB.
+    * Devuelve `{"status": "success"}`.
+9.  **`servicio_ventas` (Interno):**
+    * Recibe el "success". Termina su lógica.
+    * Devuelve la respuesta final de la venta (ej. `{"status": "Venta registrada"}`) al `api_gateway`.
+10. **`api_gateway` (Puerto 8000):**
+    * Recibe la respuesta de `servicio_ventas`.
+    * La reenvía idéntica al `frontend`.
+11. **Frontend (JS):**
+    * El `fetch` original se completa.
+    * Entra en el `.then(data => ...)` final.
+    * Muestra `data.status` ("Venta registrada") al usuario.
+
+---
+
+## 5. El Despliegue: Docker y Docker Compose 🐳
+
+Para evitar tener que correr 5 terminales con `php -S`, usamos Docker para orquestar toda la aplicación.
+
+### Glosario de Conceptos de Docker
+
+* **`Dockerfile` (La Receta 📜):** Un archivo de texto en cada servicio que define los pasos para construir su "caja". Le dice qué S.O. usar (`FROM php:8.3-apache`), qué extensiones instalar (`RUN docker-php-ext-install pdo_mysql`) y qué código copiar (`COPY . /var/www/html`).
+* **`Imagen` (El Plano 🖼️):** El resultado de `docker build`. Es una plantilla autocontenida (un "mini-servidor") que tiene PHP, Apache y tu código listos para ser ejecutados.
+* **`Contenedor` (La Caja en Ejecución 📦):** Una instancia viva de una Imagen. Es la "caja" que está corriendo tu servicio.
+* **`docker-compose.yml` (El Director de Orquesta 🎼):** El archivo YAML principal que le dice a Docker Compose:
+    * Qué servicios construir (frontend, gateway, usuarios, etc.).
+    * Dónde encontrar su `Dockerfile` (ej. `build: ./frontend`).
+    * Qué puertos abrir al exterior (ej. `ports: - "3000:80"`).
+* **Red de Docker (El Barrio Privado 🏡):** Cuando se levanta con `docker compose`, todos los contenedores se conectan a una red virtual. Dentro de esta red, pueden llamarse unos a otros usando sus **nombres de servicio** (ej. `http://usuarios`, `http://productos`) en lugar de `localhost` y puertos.
+* **Volúmenes (El Portal 🔮):**
+    * La línea `volumes: - ./frontend:/var/www/html:Z` en el `docker-compose.yml`.
+    * Crea un "espejo" entre la carpeta de tu PC (ej. `./frontend`) y la carpeta *dentro* del contenedor (`/var/www/html`).
+    * **Esto te permite editar código en tu PC y ver los cambios al instante en el navegador sin tener que reconstruir la imagen.**
+
+### Comandos Clave
+
+* `docker compose up --build`: El comando único. Construye todas las imágenes (si cambiaron) y levanta todos los contenedores.
+* `docker compose down`: Detiene y elimina todos los contenedores definidos en el `docker-compose.yml`.
+* `docker ps`: Lista los contenedores que están actualmente en ejecución.
+* `docker stop <nombre_contenedor>`: Detiene un contenedor específico (ej. `docker stop srv-usuarios`).
+* `docker rm <nombre_contenedor>`: Elimina un contenedor detenido.
+* `docker build -t <nombre-imagen> .`: (Lo que usábamos al principio) Construye una imagen manualmente desde un `Dockerfile`.
+
+---
+
+## 6. Lecciones Aprendidas (Resolución de Errores) 💡
+
+Durante el proyecto, resolvimos problemas del mundo real:
+
+* **Error de CORS (`Access-Control-Allow-Origin...`)**
+    * **Causa:** El navegador (`localhost:3000`) intentaba llamar al `api_gateway` (`localhost:8000`). Al ser puertos diferentes, el navegador lo bloqueaba por seguridad.
+    * **Solución:** Añadimos un "Middleware" en el `api_gateway` (Slim) que añade los encabezados `Access-Control-Allow-Origin: 'http://localhost:3000'` a cada respuesta, dándole permiso explícito al navegador.
+
+* **Error de Login (`Credenciales incorrectas`)**
+    * **Causa:** Habíamos guardado la contraseña en la BD como texto plano (`123456`), pero el código intentaba verificarla con `password_verify()`, que espera un **HASH**.
+    * **Solución:** Usamos el endpoint `/registro` (que usa `password_hash()`) para crear un usuario correctamente. La contraseña en la BD ahora se ve como `$2y$10$...`.
+
+* **Error de Guzzle en `servicio_ventas` (`Connection refused`)**
+    * **Causa:** El `servicio_ventas` (dentro de un contenedor) intentaba llamar a `http://localhost:8000/productos`.
+    * **Solución:** `localhost` dentro de un contenedor es *él mismo*. La dirección correcta para la comunicación interna de Docker es el **nombre del servicio**: `http://productos/productos/...`.
+
+* **Error de Docker Build (`mongodb.so: undefined symbol: SSL_...`)**
+    * **Causa:** La extensión de PHP para MongoDB (`pecl install mongodb`) necesita las librerías de SSL del sistema operativo. Nuestra "receta" (`Dockerfile`) intentó instalar la extensión de PHP antes que las librerías del sistema.
+    * **Solución:** Modificamos el `Dockerfile` del `servicio_productos` para que primero ejecutara `RUN apt-get install -y libssl-dev` y *luego* ejecutara `RUN pecl install mongodb...`.
+
+* **Error de Volúmenes (`403 Forbidden`)**
+    * **Causa:** Usamos `volumes:` para ver los cambios de código en vivo. Esto creó un "portal" a los archivos de nuestra máquina, que eran propiedad del usuario `mariano3128`. El Apache *dentro* del contenedor (usuario `www-data`) no tenía permisos para leerlos.
+    * **Solución:** Usamos el flag `:Z` en el `docker-compose.yml` (ej. `- ./frontend:/var/www/html:Z`). Esto le indica a Docker que ajuste las "etiquetas" de seguridad de SELinux para permitir que el contenedor lea los archivos del host.
+```

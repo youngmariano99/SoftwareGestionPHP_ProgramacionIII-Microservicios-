@@ -23,39 +23,6 @@
     <p><span id="logout">(Cerrar sesión)</span></p>
     <div id="errorMensaje"></div>
 
-    <div id="panel-admin" class="panel">
-        <h2>Gestión de Empleados</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Nombre</th>
-                    <th>Apellido</th>
-                    <th>Rol</th>
-                </tr>
-            </thead>
-            <tbody id="tablaEmpleadosBody">
-                </tbody>
-        </table>
-
-        <div class="form-container">
-            <h3>Ventas</h3>
-            <table>
-                <thead>
-                    <tr>
-                        <th>ID Venta</th>
-                        <th>ID Empleado</th>
-                        <th>ID Producto</th>
-                        <th>Nombre</th>
-                        <th>Cantidad</th>
-                        <th>Stock restante</th>
-                    </tr>
-                </thead>
-                <tbody id="tablaVentasAdminBody"> <!-- ID CAMBIADO -->
-                    </tbody>
-            </table>
-        </div>
-    </div>
 
     <div id="panel-vendedor" class="panel">
         <h2>Panel de Vendedor</h2>
@@ -126,7 +93,10 @@
         </div>
     </div>
     
-    <script>
+
+
+<script>
+
     // --- DATOS GLOBALES ---
     const token = localStorage.getItem('jwt_token');
     const errorDiv = document.getElementById('errorMensaje');
@@ -168,53 +138,124 @@
 
         bienvenida.textContent = `Bienvenido, ${usuario.nombre} (Rol: ${usuario.rol})`;
 
-        if (usuario.rol === 'administrador') {
-            document.getElementById('panel-admin').style.display = 'block';
-            cargarPanelAdmin();
+        if (usuario.rol === 'vendedor') {
+            document.getElementById('panel-vendedor').style.display = 'block';
+            cargarPanelVendedor(usuario.id);
         } else {
             errorDiv.textContent = 'Tu rol no es reconocido por el sistema.';
         }
     });
 
-    // --- FUNCIÓN PARA EL PANEL DE ADMIN ---
-    function cargarPanelAdmin() {
-        cargarVentasAdmin(); // CAMBIADO: Ahora carga las ventas del admin
 
-        fetch('http://localhost:8000/empleados', {
-            method: 'GET',
-            headers: { 'Authorization': `Bearer ${token}` }
-        })
-        .then(response => {
-            if (!response.ok) throw new Error('Error al cargar empleados');
-            return response.json();
-        })
-        .then(empleados => {
-            const tbody = document.getElementById('tablaEmpleadosBody');
-            tbody.innerHTML = '';
-            empleados.forEach(emp => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `<td>${emp.id}</td><td>${emp.nombre}</td><td>${emp.apellido}</td><td>${emp.rol}</td>`;
-                tbody.appendChild(tr);
+// --- FUNCIÓN PARA EL PANEL DE VENDEDOR ---
+    function cargarPanelVendedor(idVendedor) {
+        cargarProductosVendedor();
+        cargarVentasVendedor();
+
+        document.getElementById('formCrearProducto').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const nombre = document.getElementById('prod-nombre').value;
+            const precio = parseFloat(document.getElementById('prod-precio').value);
+            const stock = parseInt(document.getElementById('prod-stock').value, 10);
+            const msgDiv = document.getElementById('msgProducto');
+
+            fetch('http://localhost:8000/productos', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ nombre, precio, stock })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    msgDiv.textContent = `Producto "${nombre}" creado con ID: ${data.id}`;
+                    cargarProductosVendedor();
+                    e.target.reset();
+                } else {
+                    msgDiv.textContent = `Error: ${data.mensaje}`;
+                }
+            })
+            .catch(err => {
+                msgDiv.textContent = 'Error de red al crear producto.';
             });
-        })
-        .catch(error => {
-            errorDiv.textContent = `Error: ${error.message}`;
+        });
+
+        document.getElementById('formRegistrarVenta').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const productoId = document.getElementById('venta-producto-id').value;
+            const cantidad = parseInt(document.getElementById('venta-cantidad').value, 10);
+            const msgDiv = document.getElementById('msgVenta');
+
+            const ventaData = {
+                id_empleado: idVendedor,
+                productos: [
+                    { "id": productoId, "cantidad": cantidad }
+                ]
+            };
+
+            fetch('http://localhost:8000/ventas', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(ventaData)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    msgDiv.textContent = `Venta registrada con ID: ${data.id_venta}`;
+                    cargarProductosVendedor();
+                    cargarVentasVendedor(); // Recargar ventas después de registrar una nueva
+                    e.target.reset();
+                } else {
+                    msgDiv.textContent = `Error: ${data.mensaje}`;
+                }
+            })
+            .catch(err => {
+                msgDiv.textContent = 'Error de red al registrar venta.';
+            });
         });
     }
 
-    
+    // Función que carga la tabla de productos para el vendedor
+    function cargarProductosVendedor() {
+        fetch('http://localhost:8000/productos', {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${token}` }
+        })
+        .then(res => res.json())
+        .then(productos => {
+            const tbody = document.getElementById('tablaProductosBody');
+            tbody.innerHTML = '';
+            productos.forEach(prod => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${prod.id}</td>
+                    <td>${prod.nombre}</td>
+                    <td>${prod.precio}</td>
+                    <td>${prod.stock}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        })
+        .catch(err => {
+            errorDiv.textContent = 'Error al cargar productos.';
+        });
+    }
 
 
-
-    // Función que carga la tabla de ventas para el ADMIN
-    function cargarVentasAdmin() {
+    // Función que carga la tabla de ventas para el VENDEDOR
+    function cargarVentasVendedor() {
         fetch('http://localhost:8000/ventas', {
             method: 'GET',
             headers: { 'Authorization': `Bearer ${token}` }
         })
         .then(res => res.json())
         .then(ventas => {
-            const tbody = document.getElementById('tablaVentasAdminBody'); // ID CORREGIDO
+            const tbody = document.getElementById('tablaVentasVendedorBody'); // ID CORREGIDO
             tbody.innerHTML = '';
             ventas.forEach(vent => {
                 const tr = document.createElement('tr');
@@ -234,8 +275,18 @@
         });
     }
 
-    
+    function registrarEntrada(id) {
+
+        const id_empleado = id;
+        fetch('http://localhost:8000/usuario/entrada', {
+            method: 'post',
+            headers: { 'Authorization': `Bearer ${token}` }
+        })
+        
+    }
+
     </script>
+
 
 </body>
 </html>

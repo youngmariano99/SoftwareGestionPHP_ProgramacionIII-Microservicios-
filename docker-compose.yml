@@ -14,7 +14,7 @@ services:
 
   # 2. El API Gateway (el recepcionista)
   gateway:
-    build: ./api_gateway     # Busca el Dockerfile en la carpeta ./api_gateway
+    build: ./backend/api_gateway     # Busca el Dockerfile en la carpeta ./api_gateway
     container_name: app-gateway
     ports:
       # Mapea el puerto 8000 de tu PC al puerto 80 de la caja
@@ -22,18 +22,18 @@ services:
 
   # 3. El Servicio de Usuarios (cocinero 1)
   usuarios:
-    build: ./servicio_usuarios # Busca el Dockerfile en la carpeta ./servicio_usuarios
+    build: ./backend/servicio_usuarios # Busca el Dockerfile en la carpeta ./servicio_usuarios
     container_name: srv-usuarios
     # ¡Sin "ports"! Nadie de afuera puede hablarle. Solo el Gateway.
 
   # 4. El Servicio de Productos (cocinero 2)
   productos:
-    build: ./servicio_productos # Busca el Dockerfile en la carpeta ./servicio_productos
+    build: ./backend/servicio_productos # Busca el Dockerfile en la carpeta ./servicio_productos
     container_name: srv-productos
     # ¡Sin "ports"!
 
   # 5. El Servicio de Ventas (cocinero 3)
   ventas:
-    build: ./servicio_ventas # Busca el Dockerfile en la carpeta ./servicio_ventas
+    build: ./backend/servicio_ventas # Busca el Dockerfile en la carpeta ./servicio_ventas
     container_name: srv-ventas
     # ¡Sin "ports"!

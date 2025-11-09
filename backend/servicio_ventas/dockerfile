@@ -1,0 +1,30 @@
+# ---- Paso 1: La Base ----
+FROM php:8.3-apache
+
+# ¡NUEVO! Instalar las librerías del sistema para SSL (necesarias para Mongo Atlas)
+# "apt-get" es el "composer" del sistema operativo (Debian/Linux)
+RUN apt-get update && apt-get install -y \
+    libssl-dev \
+    zlib1g-dev
+
+# Ahora sí, instalamos la extensión de MongoDB (que ahora detectará las librerías SSL)
+RUN pecl install mongodb-1.15.0 \
+    && docker-php-ext-enable mongodb
+
+# ---- Paso 2: Habilitar Módulos de Apache y PHP ----
+# Habilitamos pdo_mysql (para guardar ventas) y rewrite (para Slim)
+RUN docker-php-ext-install pdo_mysql
+RUN a2enmod rewrite
+
+# ---- Paso 3: Copiar nuestro código ----
+COPY . /var/www/html
+
+# ---- Paso 4: Instalar las dependencias (Composer) ----
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+RUN composer install --working-dir=/var/www/html --no-dev --optimize-autoloader
+
+# ---- Paso 5: Configurar Apache ----
+COPY apache-config.conf /etc/apache2/sites-available/000-default.conf
+
+# ---- Paso 6: Permisos ----
+RUN chown -R www-data:www-data /var/www/html

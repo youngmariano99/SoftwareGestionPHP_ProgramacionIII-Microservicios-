@@ -29,15 +29,23 @@
         })
         .then(response => response.json())
         .then(data => {
-            if (data.token) {
-                // 2. ¡Éxito! Guardamos el "carnet" (token) en el navegador
-                localStorage.setItem('jwt_token', data.token);
+            if (data.token && data.rol) {
+               
                 
-                // 3. Redirigimos al dashboard
-                window.location.href = 'dashboard.php'; 
+                
+                if(data.rol == 'administrador') {
+                    localStorage.setItem('jwt_token', data.token);
+                    window.location.href = 'dashboard.php'; 
+                }
+                else{
+                    localStorage.setItem('jwt_token', data.token);
+                    window.location.href = 'dashboardVendedor.php'; 
+                }
+                
             } else {
                 // Mostramos el error que nos dio la API
                 errorDiv.textContent = data.mensaje || 'Error desconocido';
+                console.log(data.user_rol)
             }
         })
         .catch(error => {
