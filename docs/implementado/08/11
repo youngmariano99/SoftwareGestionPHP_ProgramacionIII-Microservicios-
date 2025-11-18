@@ -196,3 +196,112 @@ Durante el proyecto, resolvimos problemas del mundo real:
     * **Causa:** Usamos `volumes:` para ver los cambios de código en vivo. Esto creó un "portal" a los archivos de nuestra máquina, que eran propiedad del usuario `mariano3128`. El Apache *dentro* del contenedor (usuario `www-data`) no tenía permisos para leerlos.
     * **Solución:** Usamos el flag `:Z` en el `docker-compose.yml` (ej. `- ./frontend:/var/www/html:Z`). Esto le indica a Docker que ajuste las "etiquetas" de seguridad de SELinux para permitir que el contenedor lea los archivos del host.
 ```
+
+```
+# Guía del Proyecto (Parte 2): Lógica de Negocio Avanzada y Escalabilidad 🚀
+
+Esta segunda fase del proyecto lleva la arquitectura de microservicios básica (construida en la Parte 1) a un nivel profesional, implementando patrones de diseño híbridos, auditoría centralizada, geolocalización y reportes visuales.
+
+---
+
+## 1. 🧠 Arquitectura Híbrida y Patrones de Datos
+
+Uno de los mayores desafíos resueltos en esta etapa fue la gestión de datos distribuidos entre diferentes motores de base de datos.
+
+### A. Persistencia Políglota (MySQL + MongoDB)
+En lugar de usar una sola base de datos para todo, utilizamos la herramienta adecuada para cada trabajo:
+* **MySQL (`servicio_ventas`, `servicio_usuarios`):** Para datos relacionales, transaccionales y críticos (Ventas, Items de Venta, Usuarios, Asistencia). Garantiza integridad referencial y consistencia financiera.
+* **MongoDB (`servicio_productos`):** Para el catálogo de productos. Permite flexibilidad (ej. agregar campos como "categoría" sin migrar esquemas) y alta velocidad de lectura.
+
+### B. "Application-Level Join" (El Pegamento PHP) 🧩
+Al separar las bases de datos, perdimos la capacidad de hacer `JOIN` en SQL entre Ventas y Productos. Implementamos el patrón de **Composición de Datos en el Backend**:
+1.  El `servicio_ventas` consulta MySQL para obtener los IDs y montos.
+2.  El `servicio_ventas` llama internamente (vía Guzzle) al `servicio_productos` para obtener el catálogo (IDs y Nombres).
+3.  **PHP** combina ambos arrays en memoria antes de enviar la respuesta al Frontend.
+
+---
+
+## 2. 🛡️ Nuevo Microservicio: Auditoría Centralizada
+
+Creamos un cuarto servicio dedicado exclusivamente a la seguridad y trazabilidad.
+
+* **Nombre:** `servicio_auditorias`
+* **Base de Datos:** MySQL (`logs_auditoria`).
+* **Función:** Actuar como un "buzón" donde todos los demás servicios depositan registros de lo que sucede.
+* **Patrón de Implementación:**
+    * Usamos bloques `try...catch` en los servicios emisores (Ventas, Usuarios, Productos).
+    * Si una operación es exitosa, enviamos un log de tipo `_OK`.
+    * Si ocurre una excepción, capturamos el error y enviamos un log `_ERROR` o `_FALLO`.
+    * **Resiliencia:** La llamada a auditoría está aislada; si el sistema de logs falla, la operación principal (ej. la venta) **no** se detiene.
+
+---
+
+## 3. 📍 Geolocalización y Mapas Interactivos
+
+Mejoramos la UX (Experiencia de Usuario) del Administrador integrando mapas reales.
+
+* **Tecnologías:** `Leaflet.js` (Mapas) + `OpenStreetMap` + `Leaflet-GeoSearch` (Buscador).
+* **Flujo:**
+    1.  El administrador busca una dirección (ej. "Av. Corrientes 123").
+    2.  El servicio de geocodificación (Nominatim) devuelve las coordenadas.
+    3.  El sistema autocompleta los campos `latitud` y `longitud` en el formulario.
+    4.  Estos datos se guardan en MySQL para futuras funcionalidades (ej. cálculo de distancias).
+
+---
+
+## 4. 📊 Inteligencia de Negocios (BI) y Reportes
+
+Transformamos datos crudos en información visual para la toma de decisiones.
+
+* **Tecnología Frontend:** `Chart.js` para gráficos interactivos (Barras y Torta).
+* **Reportes Implementados:**
+    1.  **Top Productos (Híbrido):** MySQL calcula los más vendidos (SUM de cantidades), Mongo provee los nombres.
+    2.  **Ventas por Sucursal (SQL):** Filtrado rápido por `sucursal_id`.
+    3.  **Ventas por Categoría (Complejo):** Agrupamos ventas en MySQL y las cruzamos con las categorías dinámicas de Mongo.
+    4.  **Control de Personal:** Cálculo preciso de horas trabajadas (usando `TIMESTAMPDIFF` en minutos) y liquidación de sueldos basada en tarifa por hora.
+
+---
+
+## 5. 🛒 Funcionalidades del Vendedor (Punto de Venta)
+
+Se implementó un flujo de trabajo completo para el empleado:
+
+1.  **Ciclo de Asistencia:**
+    * **Clock-in Automático:** Al hacer login.
+    * **Clock-out Manual:** Botón dedicado que cierra el turno en la BD.
+2.  **Gestión de Inventario:** Capacidad de crear productos y **categorizarlos** dinámicamente (usando `datalist` para sugerencias).
+3.  **Carrito de Compras:** Lógica en JavaScript para acumular múltiples productos en memoria antes de enviar una única transacción atómica al backend.
+
+---
+
+## 6. 🔧 Resolución de Problemas Técnicos (Parte 2)
+
+Desafíos avanzados que resolvimos durante esta fase:
+
+* **Error `Could not resolve host: auditorias`:**
+    * **Causa:** El nombre del servicio en `docker-compose.yml` no coincidía con la URL a la que Guzzle intentaba llamar.
+    * **Solución:** Estandarizamos los nombres (Docker DNS interno).
+* **Error `Class GuzzleHttp\Client not found`:**
+    * **Causa:** Agregamos la librería al `composer.json` pero el contenedor seguía usando una versión vieja.
+    * **Solución:** Usamos `docker-compose up --build` para forzar la reinstalación de dependencias.
+* **Error `forEach is not a function` en Frontend:**
+    * **Causa:** El backend devolvía un objeto JSON de error (`{ "error": "..." }`) cuando el JS esperaba un Array (`[...]`).
+    * **Solución:** Agregamos validación en el JS para detectar si la respuesta contenía una propiedad `error` antes de intentar iterar.
+* **Logs fallidos en "Crear Producto":**
+    * **Causa:** El servicio de auditoría rechazaba peticiones sin `usuario_id`, pero algunas acciones eran automáticas.
+    * **Solución:** Flexibilizamos la tabla SQL (permitiendo `NULL`) y mejoramos el Frontend para enviar siempre el ID del usuario cuando está disponible.
+
+---
+
+## 7. Estado Final del Proyecto
+
+El sistema ha evolucionado de un monolito simple a un **ERP (Sistema de Planificación de Recursos Empresariales) basado en Microservicios**.
+
+| Servicio | Base de Datos | Responsabilidad Principal |
+| :--- | :--- | :--- |
+| **Frontend** | - | Interfaz visual, Mapas, Gráficos, Lógica de Carrito. |
+| **Gateway** | - | Seguridad (JWT), Enrutamiento, RBAC (Roles). |
+| **Usuarios** | MySQL | Auth, Empleados, Sucursales, Asistencia, Sueldos. |
+| **Productos** | MongoDB | Catálogo, Precios, Stock, Categorías. |
+| **Ventas** | MySQL | Transacciones, Detalles de Venta, Reportes Financieros. |
+| **Auditoría** | MySQL | Logs centralizados de errores y actividades. |
