@@ -1,0 +1,33 @@
+# ---- Paso 1: La Base ----
+# Le decimos a Docker que empiece con una "caja" que ya tiene
+# PHP 8.3 y un servidor Apache preinstalado.
+FROM php:8.3-apache
+
+# ---- Paso 2: Habilitar Módulos de Apache y PHP ----
+# Necesitamos "pdo_mysql" para que PHP hable con MySQL.
+# Necesitamos "a2enmod rewrite" para que las URLs de Slim (ej. /login) funcionen.
+RUN docker-php-ext-install pdo_mysql
+RUN a2enmod rewrite
+
+# ---- Paso 3: Copiar nuestro código ----
+# Copiamos todo lo que está en esta carpeta (servicio_usuarios)
+# adentro de la "caja", en la carpeta del servidor web.
+COPY . /var/www/html
+
+# ---- Paso 4: Instalar las dependencias (Composer) ----
+# Instalamos Composer DENTRO de la caja
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+
+# Ejecutamos "composer install" DENTRO de la caja, en la carpeta donde copiamos el código
+RUN composer install --working-dir=/var/www/html --no-dev --optimize-autoloader
+
+# ---- Paso 5: Configurar Apache (Tu requisito) ----
+# El Apache de esta "caja" no sabe que nuestro index.php está en la carpeta /public.
+# Vamos a crear un archivo de configuración para decírselo.
+# (Crearemos este archivo en el siguiente paso)
+COPY apache-config.conf /etc/apache2/sites-available/000-default.conf
+
+# ---- Paso 6: Permisos ----
+# Nos aseguramos de que el servidor Apache (que se llama "www-data")
+# tenga permiso para leer nuestros archivos.
+RUN chown -R www-data:www-data /var/www/html

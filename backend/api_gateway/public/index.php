@@ -42,6 +42,7 @@ $servicios = [
     'productos' => 'http://productos', // <-- CAMBIO
     'ventas' => 'http://ventas',     // <-- CAMBIO
     'horas-trabajadas' => 'http://horas-trabajadas',
+    'auditorias' => 'http://auditorias'
 ];
 // --- FIN CONFIGURACIÓN ---
 
@@ -79,8 +80,34 @@ $app->any('/{proxy:.*}', function (Request $request, Response $response, array $
             // --- INICIO: CONTROL DE ROLES (RBAC) ---
             $rutaPermitida = false;
 
-            if (str_starts_with($path, 'ventas')) {
+
+            if (str_starts_with($path, '/ventas/sucursal/')) {
                 if ($rol === 'vendedor' || $rol === 'administrador') {
+                    $rutaPermitida = true;
+                }
+            }
+            elseif (str_starts_with($path, 'ventas/por-categoria')) {
+                if ($rol === 'administrador') {
+                    $rutaPermitida = true;
+                }
+            }
+             elseif (str_starts_with($path, 'stock/bajo')) { 
+                
+                if ($rol === 'administrador') {
+                    $rutaPermitida = true;
+                }
+            }
+            else if (str_starts_with($path, '/ventas/top-productos')) {
+                if ($rol === 'administrador') {
+                    $rutaPermitida = true;
+                }
+            }
+            else if (str_starts_with($path, 'ventas')) {
+                if ($rol === 'vendedor' || $rol === 'administrador') {
+                    $rutaPermitida = true;
+                }
+            }elseif (str_starts_with($path, 'productos/')) {
+                if ($rol === 'administrador' || $rol === 'vendedor') {
                     $rutaPermitida = true;
                 }
             } elseif (str_starts_with($path, 'productos')) {
@@ -92,7 +119,45 @@ $app->any('/{proxy:.*}', function (Request $request, Response $response, array $
                     $rutaPermitida = true;
                 }
             }
-            
+            elseif (str_starts_with($path, 'horas-trabajadas/resumen')) { 
+                // Solo el Admin puede LEER los logs
+                if ($rol === 'administrador') {
+                    $rutaPermitida = true;
+                }
+            }
+            elseif(str_starts_with($path, 'horas-trabajadas')) {
+                $rutaPermitida = true;
+            }
+            elseif(str_starts_with($path, 'sucursales')) {
+                if ($rol === 'administrador') {
+                    $rutaPermitida = true;
+                }
+            }
+            elseif(str_starts_with($path, 'registro')) {
+                if ($rol === 'administrador') {
+                    $rutaPermitida = true;
+                }
+            }
+            elseif (str_starts_with($path, 'logs')) { // <-- AÑADIR ESTO
+                // Solo el Admin puede LEER los logs
+                if ($rol === 'administrador') {
+                    $rutaPermitida = true;
+                }
+            }
+            elseif (str_starts_with($path, 'liquidacion')) { 
+                
+                if ($rol === 'administrador') {
+                    $rutaPermitida = true;
+                }
+            }
+            elseif (str_starts_with($path, 'categorias')) {
+            if ($rol === 'vendedor' || $rol === 'administrador') {
+                $rutaPermitida = true;
+            }
+            }   
+           
+
+
             if ($rutaPermitida === false) {
                 $response->getBody()->write(json_encode([
                     'status' => 'error',
@@ -116,13 +181,30 @@ $app->any('/{proxy:.*}', function (Request $request, Response $response, array $
     $queryParams = $request->getQueryParams();
     $targetUrl = '';
     
-    if (str_starts_with($path, 'productos')) {
+    if (str_starts_with($path, 'stock/bajo')) {
         $targetUrl = $servicios['productos'] . '/' . $path;
-    } elseif (str_starts_with($path, 'ventas')) {
+    } elseif (str_starts_with($path, 'productos')) {
+        $targetUrl = $servicios['productos'] . '/' . $path;
+    }elseif (str_starts_with($path, 'categorias')) {
+    $targetUrl = $servicios['productos'] . '/' . $path;
+    }
+    elseif (str_starts_with($path, 'ventas')) {
         $targetUrl = $servicios['ventas'] . '/' . $path;
     } elseif (str_starts_with($path, 'login') || str_starts_with($path, 'empleados')) {
         $targetUrl = $servicios['usuarios'] . '/' . $path;
-    } else {
+    } elseif (str_starts_with($path, 'horas-trabajadas/resumen')){
+        $targetUrl = $servicios['usuarios'] . '/' . $path;
+    }elseif (str_starts_with($path, 'horas-trabajadas')){
+        $targetUrl = $servicios['usuarios'] . '/' . $path;
+    }elseif (str_starts_with($path, 'sucursales')){
+        $targetUrl = $servicios['usuarios'] . '/' . $path;
+    }elseif (str_starts_with($path, 'registro')){
+        $targetUrl = $servicios['usuarios'] . '/' . $path;
+    }elseif (str_starts_with($path, 'logs')){
+        $targetUrl = $servicios['auditorias'] . '/' . $path;
+    }elseif (str_starts_with($path, 'liquidacion')){
+        $targetUrl = $servicios['usuarios'] . '/' . $path;
+    }else {
         $response->getBody()->write(json_encode(['error' => 'Ruta no encontrada']));
         return $response->withStatus(404)->withHeader('Content-Type', 'application/json');
     }

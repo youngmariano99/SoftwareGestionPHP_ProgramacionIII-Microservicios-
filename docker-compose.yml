@@ -37,3 +37,7 @@ services:
     build: ./backend/servicio_ventas # Busca el Dockerfile en la carpeta ./servicio_ventas
     container_name: srv-ventas
     # ¡Sin "ports"!
+
+  auditorias:
+    build: ./backend/servicio_auditorias # Busca el Dockerfile en la carpeta ./servicio_ventas
+    container_name: srv-auditorias
