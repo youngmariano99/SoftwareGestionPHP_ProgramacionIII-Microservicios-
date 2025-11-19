@@ -21,12 +21,22 @@ $seccion = $_GET['seccion'] ?? 'inicio';
         'empleados', 
         'productos', 
         'ventas', 
-        'logs'
+        'logs',
+        'vendedor'
     ];
 
     if (in_array($seccion, $secciones_permitidas)) {
-        // Construimos la ruta: views/admin/nombre_seccion.php
-        $archivo = "views/admin/$seccion.php";
+        
+        
+        $archivo = ''; // Inicializamos la variable
+        
+        if ($seccion == 'vendedor') {
+            // CASO ESPECIAL: Buscamos en la carpeta de vendedor
+            $archivo = "views/vendedor/panel.php";
+        } else {
+            // CASO NORMAL: Buscamos en la carpeta de admin
+            $archivo = "views/admin/$seccion.php";
+        }
         
         if (file_exists($archivo)) {
             include $archivo;

@@ -1,97 +1,68 @@
-<form id="loginForm">
-    <div>
-        <label for="email">Email:</label>
-        <input type="email" id="email" name="email" required>
-    </div>
-    <div>
-        <label for="password">Contraseña:</label>
-        <input type="password" id="password" name="password" required>
-    </div>
-    <button type="submit">Ingresar</button>
-    <div id="errorMensaje" style="color: red;"></div>
-</form>
-
-<script>
-    // --- ¡NUEVO! Función helper para decodificar el token ---
-    // (La copiamos de dashboardVendedor.php)
-    function decodificarToken(token) {
-        try {
-            const payloadBase64 = token.split('.')[1];
-            const payloadJson = atob(payloadBase64);
-            const payload = JSON.parse(payloadJson);
-            return payload.data;
-        } catch (e) {
-            console.error('Error al decodificar token:', e);
-            return null;
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Sistema Gestión</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
         }
-    }
+        .login-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 350px;
+            text-align: center;
+        }
+        h2 { margin-top: 0; color: #333; }
+        input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #2c3e50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1.1em;
+        }
+        button:hover { background-color: #34495e; }
+        #errorMensaje { color: red; margin-top: 10px; font-size: 0.9em; }
+    </style>
+</head>
+<body>
 
-    document.getElementById('loginForm').addEventListener('submit', function(e) {
-        e.preventDefault(); // Evita que el formulario se envíe
-        
-        const email = document.getElementById('email').value;
-        const password = document.getElementById('password').value;
-        const errorDiv = document.getElementById('errorMensaje');
+    <div class="login-card">
+        <h2>🔐 Iniciar Sesión</h2>
+        <form id="loginForm">
+            <div>
+                <input type="email" id="email" name="email" placeholder="Correo electrónico" required>
+            </div>
+            <div>
+                <input type="password" id="password" name="password" placeholder="Contraseña" required>
+            </div>
+            <button type="submit">Ingresar</button>
+            <div id="errorMensaje"></div>
+        </form>
+    </div>
 
-        // 1. Llamamos a nuestro API GATEWAY (puerto 8000)
-        fetch('http://localhost:8000/login', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ email: email, password: password })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.token && data.rol) {
-                // --- ¡LÓGICA MEJORADA! ---
-                
-                // 1. Guardamos el token
-                localStorage.setItem('jwt_token', data.token);
+    <script src="js/login.js"></script>
 
-                // 2. Decodificamos el token para obtener el ID
-                const usuario = decodificarToken(data.token);
-                
-                if (!usuario || !usuario.id) {
-                    throw new Error("No se pudo obtener el ID del usuario desde el token.");
-                }
-
-                // 3. ¡NUEVO! Si es vendedor, intentamos registrar la entrada (clock-in)
-                if (data.rol === 'vendedor') {
-                    
-                    fetch('http://localhost:8000/horas-trabajadas/horario-entrada', {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${data.token}`,
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ usuario_id: usuario.id })
-                    })
-                    .then(clockInRes => clockInRes.json())
-                    .then(clockInData => {
-                        console.log('Respuesta de Clock-in:', clockInData.mensaje);
-                        // 4. Solo después del clock-in, redirigimos
-                        window.location.href = 'dashboardVendedor.php';
-                    })
-                    .catch(err => {
-                        // Si el clock-in falla, mostramos error pero redirigimos igual
-                        console.error('Error en clock-in:', err);
-                        window.location.href = 'dashboardVendedor.php';
-                    });
-
-                } else if (data.rol === 'administrador') {
-                    // El admin no ficha, solo redirige
-                    window.location.href = 'dashboard.php'; 
-                }
-                
-            } else {
-                // Mostramos el error que nos dio la API
-                errorDiv.textContent = data.mensaje || 'Error desconocido';
-            }
-        })
-        .catch(error => {
-            errorDiv.textContent = 'Error de conexión con la API.';
-            console.error('Error:', error);
-        });
-    });
-</script>
+</body>
+</html>

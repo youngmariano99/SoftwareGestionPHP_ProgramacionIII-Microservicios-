@@ -209,9 +209,17 @@ $app->any('/{proxy:.*}', function (Request $request, Response $response, array $
         return $response->withStatus(404)->withHeader('Content-Type', 'application/json');
     }
 
+    $headers = $request->getHeaders();
+
+    // Quitamos 'Host' y 'Content-Length' para que Guzzle los calcule automáticamente
+    // y no haya conflictos al enviar el archivo.
+    unset($headers['Host']);
+    unset($headers['Content-Length']);
+
     // --- REENVIAR LA PETICIÓN AL SERVICIO INTERNO ---
     try {
         $apiResponse = $guzzle->request($metodo, $targetUrl, [
+            'headers' => $headers, // <--- 2. ¡AGREGAR ESTA LÍNEA! 🔑
             'body' => $body,
             'query' => $queryParams,
             'http_errors' => false

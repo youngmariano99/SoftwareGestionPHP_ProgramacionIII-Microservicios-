@@ -45,6 +45,7 @@
     <nav>
         <div class="brand">🏢 Sistema Gestión</div>
         
+        <?php if($seccion != 'vendedor'): ?>
         <ul id="menu-navegacion">
             <li><a href="dashboard.php?seccion=inicio" class="<?= ($seccion == 'inicio') ? 'active' : '' ?>">🏠 Inicio</a></li>
             <li><a href="dashboard.php?seccion=sucursales" class="<?= ($seccion == 'sucursales') ? 'active' : '' ?>">📍 Sucursales</a></li>
@@ -53,6 +54,7 @@
             <li><a href="dashboard.php?seccion=ventas" class="<?= ($seccion == 'ventas') ? 'active' : '' ?>">💰 Ventas</a></li>
             <li><a href="dashboard.php?seccion=logs" class="<?= ($seccion == 'logs') ? 'active' : '' ?>">🛡️ Auditoría</a></li>
         </ul>
+        <?php endif; ?>
 
         <div>
             <span id="nombreUsuario">Bienvenido</span> | 

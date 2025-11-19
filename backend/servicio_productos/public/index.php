@@ -27,4 +27,7 @@ $app->put('/productos/{id}/stock', ProductoController::class . ':actualizarStock
 $app->get('/stock/bajo', ProductoController::class . ':listarStockBajo');
 $app->get('/categorias', ProductoController::class . ':listarCategorias');
 
+// Imagenes
+$app->post('/productos/imagen', ProductoController::class . ':subirImagen');
+
 $app->run();

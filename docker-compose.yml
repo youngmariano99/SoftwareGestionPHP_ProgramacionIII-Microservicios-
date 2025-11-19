@@ -1,43 +1,37 @@
-# Versión de la sintaxis de Docker Compose
 version: '3.8'
 
-# Aquí definimos la lista de todos nuestros servicios (cajas)
 services:
 
-  # 1. El Frontend (el que ve el usuario)
   frontend:
-    build: ./frontend        # Busca el Dockerfile en la carpeta ./frontend
+    build: ./frontend
     container_name: app-frontend
     ports:
-      # Mapea el puerto 3000 de tu PC al puerto 80 de la caja
       - "3000:80"
+    volumes:
+      # Mapeamos la carpeta local ./uploads a una carpeta pública en el contenedor
+      - ./uploads:/var/www/html/uploads 
 
-  # 2. El API Gateway (el recepcionista)
   gateway:
-    build: ./backend/api_gateway     # Busca el Dockerfile en la carpeta ./api_gateway
+    build: ./backend/api_gateway
     container_name: app-gateway
     ports:
-      # Mapea el puerto 8000 de tu PC al puerto 80 de la caja
       - "8000:80"
 
-  # 3. El Servicio de Usuarios (cocinero 1)
   usuarios:
-    build: ./backend/servicio_usuarios # Busca el Dockerfile en la carpeta ./servicio_usuarios
+    build: ./backend/servicio_usuarios
     container_name: srv-usuarios
-    # ¡Sin "ports"! Nadie de afuera puede hablarle. Solo el Gateway.
 
-  # 4. El Servicio de Productos (cocinero 2)
   productos:
-    build: ./backend/servicio_productos # Busca el Dockerfile en la carpeta ./servicio_productos
+    build: ./backend/servicio_productos
     container_name: srv-productos
-    # ¡Sin "ports"!
+    volumes:
+      # El servicio de productos necesita ESCRIBIR en esta carpeta
+      - ./uploads:/var/www/html/public/uploads
 
-  # 5. El Servicio de Ventas (cocinero 3)
   ventas:
-    build: ./backend/servicio_ventas # Busca el Dockerfile en la carpeta ./servicio_ventas
+    build: ./backend/servicio_ventas
     container_name: srv-ventas
-    # ¡Sin "ports"!
 
   auditorias:
-    build: ./backend/servicio_auditorias # Busca el Dockerfile en la carpeta ./servicio_ventas
+    build: ./backend/servicio_auditorias
     container_name: srv-auditorias

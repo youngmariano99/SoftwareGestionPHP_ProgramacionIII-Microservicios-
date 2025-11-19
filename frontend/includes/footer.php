@@ -48,5 +48,9 @@
         <script src="js/dashboard_ventas.js"></script>
     <?php endif; ?>
 
+    <?php if(isset($seccion) && $seccion == 'vendedor'): ?>
+        <script src="js/dashboard_vendedor.js"></script>
+    <?php endif; ?>
+
     </body>
 </html>
