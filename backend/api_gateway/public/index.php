@@ -1,4 +1,9 @@
 <?php
+
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Slim\Factory\AppFactory;
@@ -6,6 +11,8 @@ use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
+
+
 
 require __DIR__ . '/../vendor/autoload.php';
 
@@ -104,6 +111,10 @@ $app->any('/{proxy:.*}', function (Request $request, Response $response, array $
             }
             else if (str_starts_with($path, 'ventas')) {
                 if ($rol === 'vendedor' || $rol === 'administrador') {
+                    $rutaPermitida = true;
+                }
+            }elseif (str_starts_with($path, 'productos/imagen')) {
+                if ($rol === 'administrador' || $rol === 'vendedor') {
                     $rutaPermitida = true;
                 }
             }elseif (str_starts_with($path, 'productos/')) {
@@ -209,22 +220,34 @@ $app->any('/{proxy:.*}', function (Request $request, Response $response, array $
         return $response->withStatus(404)->withHeader('Content-Type', 'application/json');
     }
 
-    $headers = $request->getHeaders();
+   try {
+        // 1. Preparar Cabeceras
+        $headers = $request->getHeaders();
+        
+        // Quitamos las que causan conflicto
+        unset($headers['Host']);
+        unset($headers['Content-Length']);
+        unset($headers['Transfer-Encoding']); // Agregamos esta por seguridad
 
-    // Quitamos 'Host' y 'Content-Length' para que Guzzle los calcule automáticamente
-    // y no haya conflictos al enviar el archivo.
-    unset($headers['Host']);
-    unset($headers['Content-Length']);
-
-    // --- REENVIAR LA PETICIÓN AL SERVICIO INTERNO ---
-    try {
-        $apiResponse = $guzzle->request($metodo, $targetUrl, [
-            'headers' => $headers, // <--- 2. ¡AGREGAR ESTA LÍNEA! 🔑
-            'body' => $body,
+        $guzzleOptions = [
+            'headers' => $headers,
             'query' => $queryParams,
             'http_errors' => false
-        ]);
+        ];
 
+        // 2. Adjuntar cuerpo (Solo si no es GET)
+        if ($metodo !== 'GET') {
+            // --- ¡EL TRUCO DEL REWIND! ---
+            // Rebobinamos el stream para asegurarnos de leer desde el principio
+            if ($request->getBody()->isSeekable()) {
+                $request->getBody()->rewind();
+            }
+            $guzzleOptions['body'] = $request->getBody();
+        }
+
+        // 3. Enviar
+        $apiResponse = $guzzle->request($metodo, $targetUrl, $guzzleOptions);
+        
         $response->getBody()->write($apiResponse->getBody()->getContents());
         return $response
                 ->withStatus($apiResponse->getStatusCode())
